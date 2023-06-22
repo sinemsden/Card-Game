@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22ac243b3489bd74690a6df957bb47d3, type: 3}
+  m_Name: MinionCard3
+  m_EditorClassIdentifier: 
+  id: 5
+  image: {fileID: 21300000, guid: 3b274ce2522f98d46992e0d53de6cb13, type: 3}
+  title: Healer
+  description: Gives 2 hp a minion or player every turn.
+  manaCost: 3
+  health: 2
+  effectValue: 2
+  effectType: 0

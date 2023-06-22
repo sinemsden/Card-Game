@@ -48,13 +48,20 @@ public class InputManager : MonoBehaviour
     }
     private void ExecuteTrajectory()
     {
-        if (selectedCard == null) 
-        { 
+        if (selectedCard == null)
+        {
             Trajectory.Instance.Calculate(Vector3.zero, Vector3.zero);
             return; 
         }
         if (selectedCard.state != CardState.Used) { return; }
 
-        Trajectory.Instance.Calculate(selectedCard.transform.position, mousePosition);
+        if (selectedCard.side == CardSide.Player)
+        {
+            Trajectory.Instance.Calculate(selectedCard.transform.position, mousePosition);
+        }
+        else
+        {
+            Trajectory.Instance.Calculate(Vector2.zero, Vector2.zero); 
+        }
     }
 }

@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
+using Photon;
+using Photon.Pun;
 using Sirenix.OdinInspector;
 using DG.Tweening;
 
@@ -49,7 +51,8 @@ public struct Property
 
 public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
-    public int id;
+    public TextMeshPro IdNumber;
+    public TextMeshPro IdNumber2;
     public Property property;
     public CardObject cardObject;
     public Slot slot;
@@ -83,6 +86,7 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
 
     private void Awake()
     {
+        view = PhotonView.Get(this);
         InitComponents();
         InitCardProperties();
     }
@@ -179,7 +183,7 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
         transform.DORotate(new Vector3(transform.localEulerAngles.x, transform.localEulerAngles.y, targetRotation), 0.5f);
 
         side = cardSide;
-        Debug.Log(gameObject.name + " is " + side.ToString() + " now!");
+//        Debug.Log(gameObject.name + " is " + side.ToString() + " now!");
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -227,7 +231,7 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
                 //Has been attacked
                 Debug.Log(side.ToString() + InputManager.selectedCard.name.ToString() + " side: " + InputManager.selectedCard.side);
             
-                InputManager.selectedCard.EffectTo(this);
+                InputManager.selectedCard.view.RPC(nameof(EffectTo), RpcTarget.All, id);
             }
         }
         else
@@ -244,7 +248,8 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
                         MoveToParent();
                         return;
                     }
-                    TableManager.Instance.AddCardToTable(this);
+                    TableManager.Instance.view.RPC("AddCardToTable", Photon.Pun.RpcTarget.All, id);
+                    Debug.Log("Card played, id: " + id);
                 }
                 else
                 {
@@ -276,8 +281,14 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
             }
         }
     }
+    
+    [PunRPC]
     public virtual void PutToTable(Slot slot)
     {
+        if (side != GameManager.turnOwner && InputManager.selectedCard == null)
+        {
+            return;
+        }
         property.cardEf0.Stop();
     }
 
@@ -310,13 +321,38 @@ public abstract class Card : InstanceBase, IPointerEnterHandler, IPointerExitHan
         property.cardEf0.Stop();
     }
 
-    public override void EffectTo(InstanceBase effectedInstance)
+    public void ServerEffectTo(int effectedId)
     {
-        effectedInstance.WasEffected(this, this.cardObject.effectValue);
+        if (this is MinionCard)
+        {
+            view.RPC(nameof(EffectTo), RpcTarget.All, effectedId);
+        }
+        
+        InstanceBase effectedInstance;
+
+        if (effectedId > 300)
+        {
+            bool isPlayer = PhotonNetwork.IsMasterClient == true ? true : false;
+            GameManager.view.RPC("EffectToPlayer", RpcTarget.MasterClient, id, isPlayer);
+        }
+        else
+        {
+            effectedInstance = CardManager.FetchCardById(effectedId);
+            MinionCard minionCard = effectedInstance.gameObject.GetComponent<MinionCard>();
+
+            minionCard.view.RPC(nameof(WasEffected), RpcTarget.All, id, this.cardObject.effectValue);
+        }
+    }
+
+    [PunRPC]
+    public override void EffectTo(int effectedId)
+    {
+
     }
 
     public virtual void Die()
     {
+        CardManager.activeCards.Remove(this);
         if (InputManager.selectedCard == this)
         {
             InputManager.selectedCard = null;

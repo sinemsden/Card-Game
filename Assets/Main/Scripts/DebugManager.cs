@@ -35,8 +35,8 @@ public class DebugManager : Singleton<DebugManager>
         if (isPlayer == true)
         {
             foreach(Slot slot in playerHand.cardSlots)
-            {
-                TableManager.Instance.AddCardToTable(slot.card);
+            {                    
+               // TableManager.Instance.view.RPC("AddCardToTable", Photon.Pun.RpcTarget.All, slot.card);
                 break;
             }
         }
@@ -44,7 +44,7 @@ public class DebugManager : Singleton<DebugManager>
         {
             foreach(Slot slot in opponentHand.cardSlots)
             {
-                TableManager.Instance.AddCardToTable(slot.card);
+                //TableManager.Instance.view.RPC("AddCardToTable", Photon.Pun.RpcTarget.All, slot.card);
                 break;
             }
         }

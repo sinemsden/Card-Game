@@ -2,6 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using PlayFab;
+using PlayFab.ClientModels;
+using Photon;
+using Photon.Pun;
 using TMPro;
 
 [System.Serializable]
@@ -17,11 +21,14 @@ public class PlayerInstance : InstanceBase, IPointerEnterHandler, IPointerExitHa
     public int maxMana = 1;
     public int currentMana = 1;
     public CardSide side;
+    public TextMeshPro playerName;
     private OutlineController _outlineController;
 
     private void Start()
     {
         _outlineController = GetComponent<OutlineController>();
+        view = PhotonView.Get(this);
+        GameManager.Instance.Server_InitPlayer(this);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -38,13 +45,20 @@ public class PlayerInstance : InstanceBase, IPointerEnterHandler, IPointerExitHa
         {
             if (InputManager.selectedCard.side == CardSide.Player && InputManager.selectedCard.state == CardState.Used)
             {
-                InputManager.selectedCard.EffectTo(this);
+                InputManager.selectedCard.view.RPC(nameof(EffectTo), RpcTarget.All, id);
             }
         }
     }
     
-    public override void WasEffected(Card effectorCard, int effectValue)
+    [PunRPC]
+    public override void WasEffected(int effectorCardId, int effectValue)
     {
+        Card effectorCard;
+
+        print("Effector Card: " + effectorCardId);
+
+        effectorCard = CardManager.FetchCardById(effectorCardId);
+
         switch (effectorCard.cardObject.effectType)
         {
             case EffectType.Attack:

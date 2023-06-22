@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 22ac243b3489bd74690a6df957bb47d3, type: 3}
   m_Name: MinionCard0
   m_EditorClassIdentifier: 
+  attribute: 1
   id: 0
   image: {fileID: 21300000, guid: 04f2bc8b396829a4eb4465830739cb40, type: 3}
   title: Minion

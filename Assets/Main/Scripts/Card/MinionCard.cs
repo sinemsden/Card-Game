@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using DG.Tweening;
+using Photon;
+using Photon.Pun;
 public class MinionCard : Card
 {
     public int health = 0;
@@ -70,7 +72,12 @@ public class MinionCard : Card
                     if (InputManager.selectedCard != null)
                     {   
                         Debug.Log("Input selected Card: " + InputManager.selectedCard.cardObject.title + "  |  This Card: " + this.cardObject.title);
-                        InputManager.selectedCard.EffectTo(this);
+                        InputManager.selectedCard.view.RPC(nameof(EffectTo), RpcTarget.All, id);
+                        
+                        if (cardObject.effectType == EffectType.Attack)
+                        {
+                            view.RPC(nameof(EffectTo), RpcTarget.All,  id);
+                        }
                     }
                 }
             }
@@ -79,7 +86,11 @@ public class MinionCard : Card
                 //Has been attacked
                 Debug.Log(side.ToString() + InputManager.selectedCard.name.ToString() + " side: " + InputManager.selectedCard.side);
             
-                InputManager.selectedCard.EffectTo(this);
+                InputManager.selectedCard.view.RPC(nameof(EffectTo), RpcTarget.All, id);
+                if (cardObject.effectType == EffectType.Attack)
+                {
+                    view.RPC(nameof(EffectTo), RpcTarget.All,  id);
+                }
             }
         }
         else
@@ -89,14 +100,16 @@ public class MinionCard : Card
             { 
                 if (IsUsable == true)
                 {
-                    Debug.Log(state);
+//                    Debug.Log(state);
                     if (cardObject.manaCost > GameManager.Instance.GetCurrentMana(side))
                     {
                         TMProScreenMessage.Instance.AppearMessage("Mana is not enough!", 0.5f, Color.red, 1);
                         MoveToParent();
                         return;
                     }
-                    TableManager.Instance.AddCardToTable(this);
+                    TableManager.Instance.view.RPC("AddCardToTable", Photon.Pun.RpcTarget.All, id);
+                    Debug.Log("Card played, id: " + id);
+
                 }
                 else
                 {
@@ -160,14 +173,27 @@ public class MinionCard : Card
 
             HandManager.Instance.RemoveCardFromHand(side, this);
 
-            GameManager.Instance.DecreaseMana(cardObject.manaCost);
+            GameManager.view.RPC("DecreaseMana", Photon.Pun.RpcTarget.All, cardObject.manaCost);
 
             this.slot = slot;
         }));
     }
-
-    public override void EffectTo(InstanceBase instance)
+    
+    [PunRPC]
+    public override void EffectTo(int effectedId)
     {
+        InstanceBase effectedInstance;
+
+        if (effectedId > 300)
+        {
+            effectedInstance = CardManager.FetchPlayerById(effectedId);
+        }
+        else
+        {
+            effectedInstance = CardManager.FetchCardById(effectedId);
+        }
+
+        
         if (InputManager.selectedCard == this)
         {
             InputManager.selectedCard = null;
@@ -180,8 +206,8 @@ public class MinionCard : Card
         }
         canAttack = false;
 
-        transform.position = new Vector3(transform.position.x, transform.position.y, instance.transform.position.z - 1);
-        Vector3 punchDirection = this.transform.position - instance.transform.position;
+        transform.position = new Vector3(transform.position.x, transform.position.y, effectedInstance.transform.position.z - 1);
+        Vector3 punchDirection = this.transform.position - effectedInstance.transform.position;
         
         SoundManager.Instance.PlaySound("Attack");
 
@@ -190,12 +216,19 @@ public class MinionCard : Card
         attackSequence.Append(transform.DOPunchPosition(-punchDirection * 0.75f, 0.5f, 0, 1).OnComplete(() => 
         {    
             SimpleCameraShakeInCinemachine.Instance.Shake();
-            base.EffectTo(instance);    
+            base.ServerEffectTo(effectedId);
         }));
     }
 
-    public override void WasEffected(Card effectorCard, int effectValue)
+    [PunRPC]
+    public override void WasEffected(int effectorCardId, int effectValue)
     {
+        Card effectorCard;
+
+        effectorCard = CardManager.FetchCardById(effectorCardId);
+
+        Debug.Log("Was effected, effectorCardId: " + effectorCardId + "effectorCard: " + effectorCard.cardObject.name);
+
         switch (effectorCard.cardObject.effectType)
         {
             case EffectType.Attack:
@@ -238,7 +271,7 @@ public class MinionCard : Card
         EffectHolder.Instance.Play("Destroy", transform.position);
         GameManager.Instance.Server_UpdateCardCount(this, false);
         
-        TableManager.Instance.RemoveCardFromTable(this);
+        TableManager.Instance.RemoveCardFromTable(id);
         gameObject.SetActive(false);
     }
 }

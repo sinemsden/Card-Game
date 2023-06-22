@@ -43,6 +43,18 @@ MonoBehaviour:
   - Remote_PlayACard
   - Receive_DrawACard
   - Receive_PlayACard
+  - GetMasterCard
+  - GetOpponentCard
+  - DealCard
+  - Network_EndTurn
+  - DecreaseMana
+  - PutToTable
+  - AddCardToTable
+  - RemoveCardFromTable
+  - Server_UpdateCardCount
+  - EffectTo
+  - WasEffected
+  - EffectToPlayer
   DisableAutoOpenWizard: 1
   ShowSettings: 1
-  DevRegionSetOnce: 0
+  DevRegionSetOnce: 1

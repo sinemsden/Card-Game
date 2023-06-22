@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Events;
 using DG.Tweening;
+using Photon;
+using Photon.Realtime;
 using Photon.Pun;
 using Sirenix.OdinInspector;
 public class GameManager : Singleton<GameManager>
@@ -23,37 +25,95 @@ public class GameManager : Singleton<GameManager>
 
     [Header("Dealer")]
     public int dealCardCountFirstTime = 3;
+    public bool dealCardToMaster = true;
     public float dealTimer = 0;
 
     [Header("Network")]
-    private PhotonView view;
-    public static int LocalCount = 100;
-    public static int RemoteCount = 100;
-    public static bool isLocal;
+    public static PhotonView view;
+    public static int CardCount = 100;
+    public static int PlayerCount = 400;
 
     private void Start()
     {
         view = Photon.Pun.PhotonView.Get(this);
+
+        //Get Player Card IDS
+
         DeckManager.Instance.GetCards();
+
+        UpdatePlayerNames();
+        
+        if (PhotonNetwork.IsMasterClient == false)
+        {
+            turnOwner = CardSide.Opponent;
+
+            playerLight.DOIntensity(1.5f, 0.5f);
+            opponentLight.DOIntensity(3.0f, 0.5f);
+
+            TMProScreenMessage.Instance.AppearMessage("Opponents Turn", 1, Color.white, 2);
+        }
     }
     private void Update()
     {
-        if (dealCardCountFirstTime > 0)
+        if (PhotonNetwork.IsMasterClient)
         {
-            if (dealTimer < 1.0f)
+            if (dealCardCountFirstTime > 0)
             {
-                dealTimer += Time.deltaTime * 10;
-            }
-            else
-            {
-                DealCard(CardSide.Player);
-                DealCard(CardSide.Opponent);
-                dealCardCountFirstTime--;   
-                dealTimer = 0;
+                if (dealTimer < 1.0f)
+                {
+                    dealTimer += Time.deltaTime * 10;
+                }
+                else
+                {
+                    if (dealCardToMaster == true)
+                    {
+                        view.RPC("DealCard", Photon.Pun.RpcTarget.MasterClient, CardSide.Opponent);
+                        view.RPC("DealCard", Photon.Pun.RpcTarget.Others, CardSide.Player);
+                        dealCardToMaster = false;
+                    }
+                    else
+                    {
+                        view.RPC("DealCard", Photon.Pun.RpcTarget.MasterClient, CardSide.Player);
+                        view.RPC("DealCard", Photon.Pun.RpcTarget.Others, CardSide.Opponent);
+                        dealCardToMaster = true;
+                    }
+
+                    dealCardCountFirstTime--;   
+                    dealTimer = 0;
+                }
             }
         }
     }
+    public void UpdatePlayerNames()
+    {
+        player.playerName.text = PhotonNetwork.LocalPlayer.NickName;
+        Player[] players = PhotonNetwork.PlayerListOthers;
+        if (players.Length > 0)
+        {
+            opponent.playerName.text = players[0].NickName;
+        }
+    }
 
+    [PunRPC]
+    public void EffectToPlayer(int effectorId, bool isPlayer)
+    {
+        Card card = CardManager.FetchCardById(effectorId);
+
+        if (card.side == player.side)
+        {
+            player.view.RPC("WasEffected", RpcTarget.Others, effectorId, 1);
+            opponent.view.RPC("WasEffected", RpcTarget.MasterClient, effectorId, 1);
+            Debug.Log("a");
+        }
+        else
+        {
+            player.view.RPC("WasEffected", RpcTarget.MasterClient, effectorId, 1);
+            opponent.view.RPC("WasEffected", RpcTarget.Others, effectorId, 1);
+            Debug.Log("b");
+        }
+    }
+
+    [PunRPC]
     public void DealCard(CardSide side)
     {
         if (side == CardSide.Player)
@@ -70,6 +130,15 @@ public class GameManager : Singleton<GameManager>
 
     [Button("EndTurn")]
     public void EndTurn()
+    {
+        if (turnOwner == CardSide.Player)
+        {
+            view.RPC("Network_EndTurn", Photon.Pun.RpcTarget.All);
+        }
+    }
+
+    [PunRPC]
+    public void Network_EndTurn()
     {
         MaxMana();
         if (turnOwner == CardSide.Player)
@@ -104,6 +173,7 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    [PunRPC]
     public void DecreaseMana(int value)
     {
         if (turnOwner == CardSide.Player)
@@ -152,12 +222,13 @@ public class GameManager : Singleton<GameManager>
         {
             TMProScreenMessage.Instance.AppearMessage("You Win!", 1, Color.green, 2);
         }
-        Invoke(nameof(ReturnToMainMenu), 1.5f);
+        PickACard.Instance.Invoke("Appear", 1.5f);
     }
 
     public void ReturnToMainMenu()
     {
         DOTween.Clear();
+        PhotonNetwork.LeaveLobby();
         SceneManager.LoadScene(0);
     }
 
@@ -170,29 +241,25 @@ public class GameManager : Singleton<GameManager>
         view.RPC("Receive_PlayACard", Photon.Pun.RpcTarget.Others, isPlayer);
     }
 
-    [Photon.Pun.PunRPC]
-    public void Receive_DrawACard(bool isPlayer)
-    {
-        isLocal = isPlayer;
-        //DrawACard(!isPlayer, true);
-    }
-    [Photon.Pun.PunRPC]
-    public void Receive_PlayACard(bool isPlayer)
-    {
-        isLocal = isPlayer;
-        //PlayACard(!isPlayer, true);
-    }
-    
     public void Server_UpdateCardCount(Card card, bool increase = false)
     {
-        card.GetComponent<Photon.Pun.PhotonView>().ViewID = GameManager.isLocal ? GameManager.LocalCount : GameManager.RemoteCount;
-        if (GameManager.isLocal == true)
+        card.GetComponent<Photon.Pun.PhotonView>().ViewID = CardCount;
+        card.id = CardCount;
+        card.IdNumber.text = card.id.ToString();
+        card.IdNumber2.text = card.id.ToString();
+
+        CardManager.activeCards.Add(card);
+        if (increase == true)
         {
-            GameManager.LocalCount++;
+            CardCount++;
         }
-        else
-        {
-            GameManager.RemoteCount++;
-        }
+    }
+    public void Server_InitPlayer(PlayerInstance playerInstance)
+    {
+        playerInstance.GetComponent<Photon.Pun.PhotonView>().ViewID = PlayerCount;
+        playerInstance.id = PlayerCount;
+
+        CardManager.playerInstances.Add(playerInstance);
+        PlayerCount++;
     }
 }

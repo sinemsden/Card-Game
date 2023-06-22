@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c440b4e4def90640a0aaff07b549307, type: 3}
   m_Name: SpellCard1
   m_EditorClassIdentifier: 
+  attribute: 1
   id: 2
   image: {fileID: 21300000, guid: 54989d046d11bcc41998c86e13ffbf3c, type: 3}
   title: Mystic Stone

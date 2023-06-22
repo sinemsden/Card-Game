@@ -4,24 +4,85 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Photon.Pun;
 using Photon.Realtime;
-
+using PlayFab;
+using PlayFab.ClientModels;
 public class MultiplayerManager : MonoBehaviourPunCallbacks
 {
     private void Start()
     {
-        Screen.fullScreen = true;
+        DontDestroyOnLoad(this);
+		
+        // if (classInstance == null) {
+        //     classInstance = this;
+        // }
+        // else
+        // {
+        //     Destroy(gameObject);
+        // }
 
-        DontDestroyOnLoad(gameObject);
+        // if (PhotonNetwork.IsMasterClient)
+        // {
+        //     PhotonNetwork.AutomaticallySyncScene = true;
+        //     PhotonNetwork.LoadLevel(SceneManager.GetActiveScene().buildIndex + 1);
+        // }
     }
 
     public void FindMatch()
     {
         PhotonNetwork.ConnectUsingSettings();
-        PhotonNetwork.NickName = "zattirizortzort";
+        
+        var requestUserName = new GetAccountInfoRequest();
+        PlayFabClientAPI.GetAccountInfo(requestUserName, OnGetAccountInfoUsernameSuccess, OnGetFailure);
+    }
+
+    private void OnGetAccountInfoUsernameSuccess(GetAccountInfoResult result)
+    {
+
+        string username = result.AccountInfo.TitleInfo.DisplayName;
+        if (username != "")
+        {
+            PhotonNetwork.NickName = username;
+            PhotonNetwork.LocalPlayer.NickName = username;   
+        }else{
+            PhotonNetwork.NickName = "Guest";
+            PhotonNetwork.LocalPlayer.NickName = "Username";
+        }
+    }
+
+    
+    public override void OnPlayerEnteredRoom(Player newPlayer)
+    {
+        if (PhotonNetwork.CurrentRoom.PlayerCount == 2)
+        {
+            PhotonNetwork.AutomaticallySyncScene = true;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+        }
+        GameManager.Instance.UpdatePlayerNames();
+    }
+
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        GameManager.Instance.UpdatePlayerNames();
+    }
+
+    private void OnGetFailure(PlayFabError error)
+    {
+        
     }
 
     public override void OnConnectedToMaster()
     {
+        Debug.Log("Photon sunucusuna bağlandı");
+
+        if (PhotonNetwork.AuthValues != null)
+        {
+            ExitGames.Client.Photon.Hashtable userProperties = new ExitGames.Client.Photon.Hashtable() {{"username", PhotonNetwork.AuthValues.UserId}};
+            PhotonNetwork.LocalPlayer.SetCustomProperties(userProperties);
+            //PhotonNetwork.PlayerList[0].SetCustomProperties(userProperties);
+        }
+
+        Debug.Log("Başarıyla giriş yaptınız!");
+
         PhotonNetwork.JoinLobby();
         
     }
@@ -49,8 +110,11 @@ public class MultiplayerManager : MonoBehaviourPunCallbacks
     public override void OnJoinedRoom()
     {
         // joined a room successfully, CreateRoom leads here on success
-
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+        Debug.Log(PhotonNetwork.CurrentRoom.PlayerCount);
+        if (PhotonNetwork.CurrentRoom.PlayerCount == 2)
+        {
+            PhotonNetwork.AutomaticallySyncScene = true;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+        }
     }
-
 }
